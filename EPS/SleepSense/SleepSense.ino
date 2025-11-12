@@ -1,7 +1,7 @@
 /*
  *      SleepSense - Smart sleep monitoring system
  *
- *      OLED  Vcc    --- 3.3V
+ *   SSD1306  Vcc    --- 3.3V
  *            SCL    --- 22
  *            SDA    --- 21
  *            gnd    --- GND
@@ -16,7 +16,7 @@
  *            gnd    --- GND
  * 
  *   MAX4466  Vcc    --- 3.3V
- *            out    --- 13
+ *            out    --- 34
  *            gnd    --- GND
  * 
  *   MPU6050  Vcc    --- 3.3V
@@ -39,7 +39,6 @@
 #include <InfluxDbCloud.h>    // InfluxDB certificate
 #include "esp_task_wdt.h"     // Watchdog
 
-
 // === WiFi and InfluxDB settings ===
 #define WIFI_SSID       "PosteMobile-79159793"
 #define WIFI_PASSWORD   "4PF9yedTc2FdN5kzfu4EuSQk"
@@ -51,10 +50,16 @@ InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKE
                       InfluxDbCloud2CACert); // InfluxDB instance
 Point sensors("corso_IoT"); // Data point
 
+// === NTP ===
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 3600;   // +1h for Italy
+const int   daylightOffset_sec = 3600;  // +1h for summer time
+
 // === OLED display ===
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
 #define OLED_RESET -1
+#define MAX_LINES 8
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // === Humidity & Temperature sensor ===
@@ -67,16 +72,20 @@ BH1750 lightMeter;
 
 // === Microphone ===
 #define MIC_PIN 34   // Connect MAX4466 to GPIO34 pin
+#define SAMPLES 128
 #define ADC_MAX 4095 // ESP32 ADC max value
-#define MID_VALUE 2048  // ADC middle value ~1.65V
+#define NOISE_THRESHOLD 50
+int MID_VALUE = 2048;
+float smoothAmp = 0;
+const float alpha = 0.25;
 
 // === Accelerometer & Gyroscope ===
 MPU6050 mpu(Wire); 
-const float ACC_THRESHOLD = 0.05;   // Minimum variation of acceleration (g) for moviment detection
-const float GYRO_THRESHOLD = 5.0;  // Minimum variation of gyroscope (deg/s) for moviment detection
+const float ACC_THRESHOLD = 0.10;   // Minimum variation of acceleration (g) for moviment detection
+const float GYRO_THRESHOLD = 3.0;  // Minimum variation of gyroscope (deg/s) for moviment detection
 
 void setup() {
-  Wire.begin(21, 22); // I2C pins
+  Wire.begin(21, 22); // I2C pins (21 = SDA, 22 = SCL)
   Serial.begin(115200); // Serial console
   analogReadResolution(12); // ESP32 ADC on 12 bit (0-4095)
 
@@ -88,16 +97,18 @@ void setup() {
   esp_task_wdt_reconfigure(&config); // Configure WDT
   enableLoopWDT(); // Enable WDT in loop()
 
-  // --- OLED display ---
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
     Serial.println(F("OLED error")); 
     for(;;);
   }
-  Serial.println("OLED initialized");
+  
+  // First display
+  display.display();  
   display.clearDisplay();
+  display.setCursor(0,0);  
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0,0);
+  Serial.println("OLED initialized");
   display.println("OLED ready");
 
   // --- WiFi connection ---
@@ -108,6 +119,10 @@ void setup() {
     display.print(".");
   }
   Serial.println("");
+
+  delay(2000);
+
+  // Second display
   Serial.println("WiFi connected");
   Serial.println("IP address: "); Serial.println(WiFi.localIP());
   Serial.print("RRSI: "); Serial.println(WiFi.RSSI());
@@ -115,7 +130,13 @@ void setup() {
   display.println("WiFi connected");
   display.print("IP: "); display.println(WiFi.localIP());
   display.print("RSSI: "); display.println(WiFi.RSSI());
-  
+
+  delay(2000);
+
+  display.display();
+  display.clearDisplay();
+  display.setCursor(0,0);
+
   // --- InfluxDB connection ---
   sensors.addTag("host", "ESP_LEOPIZZI");
   sensors.addTag("location", "Lecce");
@@ -145,25 +166,35 @@ void setup() {
 
   // --- Accelerometer & Gyroscope ---
   byte status = mpu.begin();
-  if (status != 0) {
-    Serial.println("MPU noy found!");
-    while(1);
+  while(status!=0){ 
+    Serial.println("MPU6050 not responding...");
+    delay(1000);   // permette al WDT di non scattare
   }
-  Serial.print(F("MPU6050 status: ")); Serial.println(status);
-  while(status!=0){ } // stop everything if could not connect to MPU6050
-  delay(1000);
   mpu.calcOffsets(true,true);
+  Serial.println("MPU6050 ready");
   display.println("MPU6050 ready");
   
+  // --- Microphone ---  
   display.println("MAX4466 ready");
+
   display.display();
 
-  delay(5000);
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 }
 
 void loop() {
   display.clearDisplay();
   display.setCursor(0,0);
+
+  // --- Timestamp  
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    return;
+  }
+  char timeStr[20];
+  strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeinfo);
+  display.println(timeStr);
 
   // --- Humidity & Temperature sensor ---
   float h = dht.readHumidity();
@@ -179,20 +210,22 @@ void loop() {
   display.print("Lux: "); display.print(lux); display.println(" lx");
 
   // --- Microphone ---
-  int maxAmp = 0;
-  for (int i = 0; i < 100; i++) {                             // Calculate the mean of multiple sampling
+  for (int i = 0; i < SAMPLES; i++) {                       // Calculate the mean of multiple sampling
     int micValue = analogRead(MIC_PIN);
-    int amplitude = abs(micValue - MID_VALUE);
-    if (amplitude > maxAmp) maxAmp = amplitude;
-    delayMicroseconds(200);                                   // Sampling rapido
+    int amplitude = abs(micValue - MID_VALUE);              // Sound amplification
+    MID_VALUE = 0.99 * MID_VALUE + 0.01 * micValue;             
+    if (amplitude < NOISE_THRESHOLD) amplitude = 0;         // Ignora piccoli rumori             
+    smoothAmp = alpha * amplitude + (1 - alpha) * smoothAmp;
+    delayMicroseconds(50);                                  // Sampling rapido
+    yield();
   }
-  int amplifiedAmp = maxAmp * 3;                              // Software amplification
+  int amplifiedAmp = smoothAmp * 3;                           // Software amplification
   amplifiedAmp = min(amplifiedAmp, ADC_MAX/2);
   int micPercent = map(amplifiedAmp, 0, ADC_MAX / 2, 0, 100); // Normalization
   micPercent = constrain(micPercent, 0, 100);
   int barLength = map(micPercent, 0, 100, 0, SCREEN_WIDTH);   // OLED bar
   display.fillRect(0, 24, barLength, 5, SSD1306_WHITE);
-
+  
   // --- Accelerometer & Gyroscope ---
   mpu.update();
   int isMoving = 0;
@@ -204,16 +237,17 @@ void loop() {
                    abs(mpu.getGyroY()) > GYRO_THRESHOLD ||
                    abs(mpu.getGyroZ()) > GYRO_THRESHOLD;
   
+  display.println(" ");
   //display.print("Acc X:"); display.print(mpu.getAccX()); display.print(" Y:"); display.print(mpu.getAccY()); display.print(" Z:"); display.println(mpu.getAccZ());
   //display.print("Gyro X:"); display.print(mpu.getGyroX()); display.print(" Y:"); display.print(mpu.getGyroY()); display.print(" Z:"); display.println(mpu.getGyroZ());
   if (delta_acc > ACC_THRESHOLD || gyro_move) {             // Moviment detected
-    Serial.print("MOVEMENT! Acc delta: "); Serial.print(delta_acc);
-    Serial.print(" GyroX: "); Serial.print(mpu.getGyroX());
-    Serial.print(" GyroY: "); Serial.print(mpu.getGyroY());
-    Serial.print(" GyroZ: "); Serial.println(mpu.getGyroZ());
-    display.println("MOVEMENT DETECTED");
+    //display.println("MOVEMENT DETECTED");
     isMoving = 50;
-  }
+    display.fillCircle(120, 12, 5, SSD1306_WHITE);
+    Serial.print("MOVEMENT! Acc delta: "); Serial.print(delta_acc);
+  }else {
+    display.fillCircle(120, 12, 5, SSD1306_BLACK);
+}
 
   // --- Send data to InfluxDB ---
   sensors.clearFields();
@@ -230,15 +264,13 @@ void loop() {
   sensors.addField("is_moving", isMoving);
   Serial.println("Sending data to InfluxDB");
 
-  Serial.print("temperature: " + String(t) + " C"); Serial.print(" humidity: " + String(h) + " %"); Serial.println(" light: " + String(lux) + " lx"); 
-  Serial.print(" mic: " + String(micPercent)); Serial.println(" Moving: " + String(isMoving));
+  Serial.print("temperature: " + String(t) + " C"); Serial.print(" humidity: " + String(h) + " %"); Serial.print(" light: " + String(lux) + " lx");  Serial.print(" mic: " + String(micPercent)); Serial.println(" Moving: " + String(isMoving));
   //Serial.print(" accel_x: " + String(mpu.getAccX()) + " g"); Serial.print(" accel_y: " + String(mpu.getAccY()) + " g"); Serial.print(" accel_z: " + String(mpu.getAccZ()) + " g");
   //Serial.print(" gyro_x: " + String(mpu.getGyroX()) + " deg/s"); Serial.print(" gyro_y: " + String(mpu.getGyroY()) + " deg/s"); Serial.println(" gyro_z: " + String(mpu.getGyroZ()) + " deg/s");
 
   if(!client.writePoint(sensors)){
     Serial.print("InfluxDB write failed ");
     Serial.println(client.getLastErrorMessage());
-    while(1); // In case of error, stop the program
   }  
 
   display.display();

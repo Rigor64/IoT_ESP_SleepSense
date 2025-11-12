@@ -26,8 +26,6 @@ from(bucket: "esercitazioni")
 
 
 
-
-
 Micro-risvegli e agitazione:
 variazioni frequenti in a_mag o g_mag indicano un sonno frammentato → qualità ridotta.
 
