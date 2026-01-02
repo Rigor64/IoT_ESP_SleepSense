@@ -40,7 +40,7 @@
 #include "esp_task_wdt.h"     // Watchdog
 
 // === WiFi and InfluxDB settings ===
-#define WIFI_SSID       "PosteMobile-79159793"
+#define WIFI_SSID       "PosteMobile-79159793_EXT"
 #define WIFI_PASSWORD   "4PF9yedTc2FdN5kzfu4EuSQk"
 #define INFLUXDB_URL    "http://informatica-iot.freeddns.org:8086/"
 #define INFLUXDB_ORG    "uniurb"
@@ -125,7 +125,7 @@ void setup() {
   // Second display
   Serial.println("WiFi connected");
   Serial.println("IP address: "); Serial.println(WiFi.localIP());
-  Serial.print("RRSI: "); Serial.println(WiFi.RSSI());
+  Serial.print("RSSI: "); Serial.println(WiFi.RSSI());
   display.println("");
   display.println("WiFi connected");
   display.print("IP: "); display.println(WiFi.localIP());
