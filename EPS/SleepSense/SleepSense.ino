@@ -276,3 +276,40 @@ void loop() {
   display.display();
   delay(200);
 }
+
+
+
+
+
+
+
+
+
+// === OLED display ===
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 32
+#define OLED_RESET -1
+#define MAX_LINES 8
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+// === Humidity & Temperature sensor ===
+#define DHTPIN 14    // Connect DHT11 to GPIO14 pin
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+// === Light sensor ===
+BH1750 lightMeter;
+
+// === Microphone ===
+#define MIC_PIN 34   // Connect MAX4466 to GPIO34 pin
+#define SAMPLES 128
+#define ADC_MAX 4095 // ESP32 ADC max value
+#define NOISE_THRESHOLD 50
+int MID_VALUE = 2048;
+float smoothAmp = 0;
+const float alpha = 0.25;
+
+// === Accelerometer & Gyroscope ===
+MPU6050 mpu(Wire); 
+const float ACC_THRESHOLD = 0.10;   // Minimum variation of acceleration (g) 
+const float GYRO_THRESHOLD = 3.0;  // Minimum variation of gyroscope (deg/s) 
