@@ -1,48 +1,40 @@
-http://informatica-iot.freeddns.org:8086/
+# Progetto IoT – SleepSense ESP32
 
-user:iot 		
-password: esp
+## Descrizione
+SleepSense è un progetto IoT per il monitoraggio e la classificazione della qualità del sonno, basato su microcontrollore ESP32 e sensori ambientali e di movimento. Il sistema raccoglie dati multimodali e li integra per fornire una valutazione sintetica e oggettiva del riposo notturno.
 
+## Obiettivi
+- Monitorare parametri ambientali e comportamentali durante il sonno  
+- Integrare sensori eterogenei in un’unica pipeline dati  
+- Classificare la qualità del sonno tramite regole e analisi successive  
+- Fornire una base scalabile per sviluppi futuri (ML, dashboard, cloud)
 
-QUERY standard influx DB
+## Hardware utilizzato
+- ESP32  
+- Sensore di umidità  
+- Sensore di luminosità  
+- Microfono ambientale  
+- Sensore di movimento
+- Schermo OLED
 
-from(bucket: "esercitazioni")
-  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-  |> filter(fn: (r) => r["_measurement"] == "corso_IoT")
-  |> filter(fn: (r) => r["_field"] == "humidity" or r["_field"] == "is_moving" or r["_field"] == "light" or r["_field"] == "mic" or r["_field"] == "temperature")
-  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: true)
-  |> yield(name: "mean")
+## Architettura del sistema
+1. Acquisizione dati dai sensori  
+2. Pre-elaborazione locale su ESP32  
+3. Trasmissione e salvataggio dei dati  
+4. Analisi e classificazione della qualità del sonno  
 
-Query CSV style 
+## Stato del progetto
+Prototipo funzionante e testato in ambiente controllato.  
+In fase di analisi delle limitazioni e definizione delle implementazioni future.
 
-from(bucket: "esercitazioni")
-  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-  |> filter(fn: (r) => r["_measurement"] == "corso_IoT")
-  |> filter(fn: (r) => r["_field"] == "humidity" or r["_field"] == "is_moving" or r["_field"] == "light" or r["_field"] == "mic" or r["_field"] == "temperature")
-  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: true)
-  |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
-  |> filter(fn: (r) => exists r.humidity and exists r.is_moving and exists r.light and exists r.mic and exists r.temperature)
-  |> yield(name: "mean")
+## Sviluppi futuri
+- Integrazione di modelli di machine learning  
+- Miglioramento della precisione dei sensori  
+- Visualizzazione dei dati tramite dashboard  
+- Ottimizzazione dei consumi energetici  
 
+## Autore
+Matteo Leopizzi
 
-
-Micro-risvegli e agitazione:
-variazioni frequenti in a_mag o g_mag indicano un sonno frammentato → qualità ridotta.
-
-Cambi di postura:
-l’accelerometro sugli assi mostra rotazioni lente e sostenute → segnale tipico di passaggio da REM a fasi più leggere.
-
-Tremori o movimenti irregolari:
-il giroscopio cattura vibrazioni rapide (es. scatti delle gambe, movimenti notturni inconsci) → potenziale disturbo.
-
-Stabilità posturale:
-se ax, ay, az restano stabili a lungo e gx, gy, gz ≈ 0 → sonno profondo.
-Al contrario, valori irregolari e continui → agitazione.
-
-Correlazione con dati ambientali:
-
-Rumore ↑ + g_mag ↑ → probabile risveglio causato da disturbo acustico.
-
-Luce ↑ + a_mag ↑ → movimenti dovuti a esposizione luminosa.
-
-Umidità/temperatura anomale + restless sleep → ambiente sfavorevole al sonno.
+## Licenza
+Progetto sviluppato a scopo accademico e sperimentale.
