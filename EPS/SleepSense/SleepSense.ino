@@ -40,8 +40,8 @@
 #include "esp_task_wdt.h"     // Watchdog
 
 // === WiFi and InfluxDB settings ===
-#define WIFI_SSID       "PosteMobile-79159793_EXT"
-#define WIFI_PASSWORD   "4PF9yedTc2FdN5kzfu4EuSQk"
+#define WIFI_SSID       "EDI"
+#define WIFI_PASSWORD   "PippoFlippo"
 #define INFLUXDB_URL    "http://informatica-iot.freeddns.org:8086/"
 #define INFLUXDB_ORG    "uniurb"
 #define INFLUXDB_BUCKET "esercitazioni"
@@ -50,7 +50,7 @@ InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKE
                       InfluxDbCloud2CACert); // InfluxDB instance
 Point sensors("corso_IoT"); // Data point
 
-// === NTP ===
+// === NTP (Network Time Protoc) ===
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 3600;   // +1h for Italy
 const int   daylightOffset_sec = 3600;  // +1h for summer time
@@ -148,7 +148,7 @@ void setup() {
     Serial.println("Connection failed!");
     display.println("InfluxDB error");
     Serial.println(client.getLastErrorMessage());    
-  }  
+  }
 
   // --- Light sensor ---
   if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE, 0x23, &Wire)) {
@@ -242,7 +242,7 @@ void loop() {
   //display.print("Gyro X:"); display.print(mpu.getGyroX()); display.print(" Y:"); display.print(mpu.getGyroY()); display.print(" Z:"); display.println(mpu.getGyroZ());
   if (delta_acc > ACC_THRESHOLD || gyro_move) {             // Moviment detected
     //display.println("MOVEMENT DETECTED");
-    isMoving = 50;
+    isMoving = 100;
     display.fillCircle(120, 12, 5, SSD1306_WHITE);
     Serial.print("MOVEMENT! Acc delta: "); Serial.print(delta_acc);
   }else {
@@ -271,45 +271,8 @@ void loop() {
   if(!client.writePoint(sensors)){
     Serial.print("InfluxDB write failed ");
     Serial.println(client.getLastErrorMessage());
-  }  
+  }
 
   display.display();
   delay(200);
 }
-
-
-
-
-
-
-
-
-
-// === OLED display ===
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 32
-#define OLED_RESET -1
-#define MAX_LINES 8
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-
-// === Humidity & Temperature sensor ===
-#define DHTPIN 14    // Connect DHT11 to GPIO14 pin
-#define DHTTYPE DHT11
-DHT dht(DHTPIN, DHTTYPE);
-
-// === Light sensor ===
-BH1750 lightMeter;
-
-// === Microphone ===
-#define MIC_PIN 34   // Connect MAX4466 to GPIO34 pin
-#define SAMPLES 128
-#define ADC_MAX 4095 // ESP32 ADC max value
-#define NOISE_THRESHOLD 50
-int MID_VALUE = 2048;
-float smoothAmp = 0;
-const float alpha = 0.25;
-
-// === Accelerometer & Gyroscope ===
-MPU6050 mpu(Wire); 
-const float ACC_THRESHOLD = 0.10;   // Minimum variation of acceleration (g) 
-const float GYRO_THRESHOLD = 3.0;  // Minimum variation of gyroscope (deg/s) 
