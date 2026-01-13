@@ -38,14 +38,9 @@
 #include <InfluxDbClient.h>   // InfluxDB communication
 #include <InfluxDbCloud.h>    // InfluxDB certificate
 #include "esp_task_wdt.h"     // Watchdog
+#include "secrets.h"          // WiFi and InfluxDB credentials
 
 // === WiFi and InfluxDB settings ===
-#define WIFI_SSID       "EDI"
-#define WIFI_PASSWORD   "PippoFlippo"
-#define INFLUXDB_URL    "http://informatica-iot.freeddns.org:8086/"
-#define INFLUXDB_ORG    "uniurb"
-#define INFLUXDB_BUCKET "esercitazioni"
-#define INFLUXDB_TOKEN  "qt5kHYb2Wwg19lbGEOe3BmVJhlMf6ZxfDu_Z7Lrhiiiv9FTEGKiD_pJzkDa_qSlUPLPm0zI-1yE6THb4kg-0kA=="
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN,
                       InfluxDbCloud2CACert); // InfluxDB instance
 Point sensors("corso_IoT"); // Data point
