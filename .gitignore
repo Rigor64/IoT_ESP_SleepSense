@@ -1,4 +1,16 @@
+# Directories with large media/data
 Img/
 Dump/
 MisurazioniOLD/
-SleepSense/secrets.h
+
+# Sensitive files - never commit actual credentials
+data/secrets.h
+EPS/SleepSense/secrets.h
+EPS/WiFi_test/WiFi_test.ino
+Dati.txt
+
+# Backup files
+*.h.bak
+*.ino.bak
+*.example.h
+*.example.ino

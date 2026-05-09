@@ -38,7 +38,7 @@
 #include <InfluxDbClient.h>   // InfluxDB communication
 #include <InfluxDbCloud.h>    // InfluxDB certificate
 #include "esp_task_wdt.h"     // Watchdog
-#include "secrets.h"          // WiFi and InfluxDB credentials
+#include "../../data/secrets.h"          // WiFi and InfluxDB credentials
 
 // === WiFi and InfluxDB settings ===
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN,
