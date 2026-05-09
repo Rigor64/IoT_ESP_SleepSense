@@ -3,9 +3,7 @@ Img/
 Dump/
 MisurazioniOLD/
 
-# Sensitive files - never commit actual credentials
-data/secrets.h
-EPS/SleepSense/secrets.h
+data/
 EPS/WiFi_test/WiFi_test.ino
 Dati.txt
 
